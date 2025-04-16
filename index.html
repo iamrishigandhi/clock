@@ -107,6 +107,7 @@
 
   <div class="stopwatch-options" id="stopwatchOptions">
     <button id="startStopwatchBtn">Start</button>
+    <button id="pauseStopwatchBtn">Pause</button>
     <button id="resetStopwatchBtn">Reset</button>
   </div>
 
@@ -157,6 +158,9 @@
     let showSeconds = true;
     let currentMode = "time";
     let stopwatchStartTime = null;
+    let stopwatchRunning = false;
+    let stopwatchElapsed = 0;
+    let stopwatchInterval = null;
     let lastDisplayedDate = '';
     let timerDuration = 300;
     let timerRemaining = timerDuration;
@@ -205,8 +209,12 @@
       if (currentMode === "time") {
         updateTimeClock();
       } else if (currentMode === "stopwatch") {
-        const secondsElapsed = stopwatchStartTime ? Math.floor((Date.now() - stopwatchStartTime) / 1000) : 0;
-        drawClock(formatStopwatch(secondsElapsed));
+        let totalSeconds = stopwatchElapsed;
+        if (stopwatchRunning && stopwatchStartTime) {
+          totalSeconds += Math.floor((Date.now() - stopwatchStartTime) / 1000);
+        }
+        drawClock(formatStopwatch(totalSeconds));
+
       } else if (currentMode === "timer") {
         const hrs = String(Math.floor(timerRemaining / 3600)).padStart(2, '0');
         const mins = String(Math.floor((timerRemaining % 3600) / 60)).padStart(2, '0');
@@ -394,11 +402,29 @@
     });
 
     document.getElementById('startStopwatchBtn').addEventListener('click', () => {
-      if (!stopwatchStartTime) stopwatchStartTime = Date.now();
+      if (!stopwatchRunning) {
+        stopwatchRunning = true;
+        stopwatchStartTime = Date.now();
+        stopwatchInterval = setInterval(() => {
+          updateDisplay();
+        }, 1000);
+      }
+    });
+
+    document.getElementById('pauseStopwatchBtn').addEventListener('click', () => {
+      if (stopwatchRunning) {
+        stopwatchElapsed += Math.floor((Date.now() - stopwatchStartTime) / 1000);
+        clearInterval(stopwatchInterval);
+        stopwatchRunning = false;
+        updateDisplay();
+      }
     });
 
     document.getElementById('resetStopwatchBtn').addEventListener('click', () => {
+      stopwatchRunning = false;
       stopwatchStartTime = null;
+      stopwatchElapsed = 0;
+      clearInterval(stopwatchInterval);
       updateDisplay();
     });
 
