@@ -34,14 +34,15 @@
       cursor: pointer;
       z-index: 1000;
     }
-    .stopwatch-options {
+    .stopwatch-options, .timer-options {
       position: absolute;
       top: 0.5vw;
       left: calc(6vw + 1vw);
       z-index: 1000;
       display: none;
     }
-    .stopwatch-options > button {
+    .stopwatch-options > button,
+    .timer-options > button {
       margin-right: 5px;
       font-size: 1vw;
       cursor: pointer;
@@ -63,15 +64,17 @@
     .options > * {
       margin: 5px;
     }
-    button, select {
+    button, select, input {
       font-size: 1vw;
       cursor: pointer;
+    }
+    input {
+      text-align: center;
     }
     .dark-mode {
       background-color: #333;
       color: #f0f0f0;
     }
-
     #dateDisplay {
       position: absolute;
       top: 0.5vw;
@@ -80,6 +83,22 @@
       z-index: 1000;
       color: inherit;
       display: block;
+    }
+    #bottomTimerDisplay {
+      position: absolute;
+      bottom: 1vw;
+      right: 1vw;
+      font-size: 2vw;
+      font-family: 'Space Mono', monospace;
+      z-index: 1000;
+      display: none;
+      color: inherit;
+    }
+    #toggleBottomTimerBtn {
+      position: absolute;
+      bottom: 1vw;
+      left: 1vw;
+      z-index: 1000;
     }
   </style>
 </head>
@@ -91,14 +110,30 @@
     <button id="resetStopwatchBtn">Reset</button>
   </div>
 
+  <div class="timer-options" id="timerOptions">
+    <button id="startTimerBtn">Start</button>
+    <button id="pauseTimerBtn">Pause</button>
+    <button id="resetTimerBtn">Reset</button>
+  </div>
+
   <canvas id="clockCanvas"></canvas>
 
   <div class="options" id="optionsDiv">
     <div>
       <button id="timeModeBtn">Time</button>
       <button id="stopwatchModeBtn">Stopwatch</button>
+      <button id="timerModeBtn">Timer</button>
       <button id="toggleDateBtn">Toggle Date Display</button>
     </div>
+
+    <!-- UPDATED TIMER INPUT SECTION -->
+    <div id="customTimerSetup" style="display: none; align-items: center; gap: 0.5vw;">
+      <input type="number" id="timerHours" placeholder="hh" style="width: 4vw;" min="0" />
+      <input type="number" id="timerMinutes" placeholder="mm" style="width: 4vw;" min="0" max="59" />
+      <input type="number" id="timerSeconds" placeholder="ss" style="width: 4vw;" min="0" max="59" />
+      <button id="setTimerBtn">Set Timer</button>
+    </div>
+
     <button id="toggleTimeFormatBtn">Toggle 24/12 Hour Format</button>
     <button id="toggleSecondsBtn">Toggle Seconds</button>
     <select id="fontSelect">
@@ -114,6 +149,8 @@
   </div>
 
   <div id="dateDisplay"></div>
+  <button id="toggleBottomTimerBtn">Toggle Bottom Timer</button>
+  <div id="bottomTimerDisplay">00:05:00</div>
 
   <script>
     let is24HourFormat = true;
@@ -121,6 +158,10 @@
     let currentMode = "time";
     let stopwatchStartTime = null;
     let lastDisplayedDate = '';
+    let timerDuration = 300;
+    let timerRemaining = timerDuration;
+    let timerInterval = null;
+    let timerRunning = false;
 
     function resizeCanvas() {
       const canvas = document.getElementById('clockCanvas');
@@ -137,7 +178,6 @@
       const day = today.getDate();
       const month = today.toLocaleString('default', { month: 'long' });
       const year = today.getFullYear();
-
       function getOrdinal(n) {
         if (n > 3 && n < 21) return 'th';
         switch (n % 10) {
@@ -147,7 +187,6 @@
           default: return 'th';
         }
       }
-
       return `${dayName}, ${day}${getOrdinal(day)} ${month}, ${year}`;
     }
 
@@ -168,11 +207,24 @@
       } else if (currentMode === "stopwatch") {
         const secondsElapsed = stopwatchStartTime ? Math.floor((Date.now() - stopwatchStartTime) / 1000) : 0;
         drawClock(formatStopwatch(secondsElapsed));
+      } else if (currentMode === "timer") {
+        const hrs = String(Math.floor(timerRemaining / 3600)).padStart(2, '0');
+        const mins = String(Math.floor((timerRemaining % 3600) / 60)).padStart(2, '0');
+        const secs = String(timerRemaining % 60).padStart(2, '0');
+        drawClock(`${hrs}:${mins}:${secs}`);
       }
 
       const dateElement = document.getElementById('dateDisplay');
       dateElement.style.fontFamily = chosenFont;
       updateDateIfNeeded();
+
+      const bottomTimerDiv = document.getElementById('bottomTimerDisplay');
+      if (bottomTimerDiv.style.display !== 'none') {
+        const hrs = String(Math.floor(timerRemaining / 3600)).padStart(2, '0');
+        const mins = String(Math.floor((timerRemaining % 3600) / 60)).padStart(2, '0');
+        const secs = String(timerRemaining % 60).padStart(2, '0');
+        bottomTimerDiv.textContent = `${hrs}:${mins}:${secs}`;
+      }
     }
 
     function updateTimeClock() {
@@ -225,13 +277,16 @@
       return `${hrs}:${mins}:${secs}`;
     }
 
-    // Toggle logic
     document.getElementById('toggleDateBtn').addEventListener('click', () => {
       const el = document.getElementById('dateDisplay');
       el.style.display = (el.style.display === 'none') ? 'block' : 'none';
     });
 
-    // Event bindings
+    document.getElementById('toggleBottomTimerBtn').addEventListener('click', () => {
+      const el = document.getElementById('bottomTimerDisplay');
+      el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+    });
+
     document.getElementById('toggleOptionsBtn').addEventListener('click', () => {
       const optionsDiv = document.getElementById('optionsDiv');
       optionsDiv.style.display = (optionsDiv.style.display === 'flex') ? 'none' : 'flex';
@@ -258,6 +313,8 @@
       stopwatchStartTime = null;
       currentMode = "time";
       document.getElementById('stopwatchOptions').style.display = "none";
+      document.getElementById('timerOptions').style.display = "none";
+      document.getElementById('customTimerSetup').style.display = "none";
       document.getElementById('toggleTimeFormatBtn').style.display = "inline-block"; 
       document.getElementById('toggleSecondsBtn').style.display = "inline-block"; 
       updateDisplay();
@@ -265,17 +322,77 @@
 
     document.getElementById('stopwatchModeBtn').addEventListener('click', () => {
       currentMode = "stopwatch";
+      stopwatchStartTime = null;
+      document.getElementById('stopwatchOptions').style.display = "block"; 
+      document.getElementById('timerOptions').style.display = "none";
+      document.getElementById('customTimerSetup').style.display = "none";
       document.getElementById('toggleTimeFormatBtn').style.display = "none";
       document.getElementById('toggleSecondsBtn').style.display = "none"; 
-      document.getElementById('stopwatchOptions').style.display = "block"; 
-      stopwatchStartTime = null;
+      updateDisplay();
+    });
+
+    document.getElementById('timerModeBtn').addEventListener('click', () => {
+      currentMode = "timer";
+      document.getElementById('timerOptions').style.display = "block";
+      document.getElementById('stopwatchOptions').style.display = "none";
+      document.getElementById('customTimerSetup').style.display = "flex";
+      document.getElementById('toggleTimeFormatBtn').style.display = "none";
+      document.getElementById('toggleSecondsBtn').style.display = "none";
+      updateDisplay();
+    });
+
+    document.getElementById('setTimerBtn').addEventListener('click', () => {
+      const hours = parseInt(document.getElementById('timerHours').value, 10) || 0;
+      const minutes = parseInt(document.getElementById('timerMinutes').value, 10) || 0;
+      const seconds = parseInt(document.getElementById('timerSeconds').value, 10) || 0;
+
+      const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+
+      if (totalSeconds > 0) {
+        timerDuration = totalSeconds;
+        timerRemaining = totalSeconds;
+        clearInterval(timerInterval);
+        timerRunning = false;
+
+        document.getElementById('timerHours').value = "";
+        document.getElementById('timerMinutes').value = "";
+        document.getElementById('timerSeconds').value = "";
+
+        updateDisplay();
+      } else {
+        alert("Please enter a time greater than 0 seconds.");
+      }
+    });
+
+    document.getElementById('startTimerBtn').addEventListener('click', () => {
+      if (!timerRunning) {
+        timerRunning = true;
+        timerInterval = setInterval(() => {
+          if (timerRemaining > 0) {
+            timerRemaining--;
+          } else {
+            clearInterval(timerInterval);
+            timerRunning = false;
+          }
+          updateDisplay();
+        }, 1000);
+      }
+    });
+
+    document.getElementById('pauseTimerBtn').addEventListener('click', () => {
+      clearInterval(timerInterval);
+      timerRunning = false;
+    });
+
+    document.getElementById('resetTimerBtn').addEventListener('click', () => {
+      clearInterval(timerInterval);
+      timerRemaining = timerDuration;
+      timerRunning = false;
       updateDisplay();
     });
 
     document.getElementById('startStopwatchBtn').addEventListener('click', () => {
-      if (!stopwatchStartTime) {
-        stopwatchStartTime = Date.now();
-      }
+      if (!stopwatchStartTime) stopwatchStartTime = Date.now();
     });
 
     document.getElementById('resetStopwatchBtn').addEventListener('click', () => {
@@ -283,7 +400,7 @@
       updateDisplay();
     });
 
-    setInterval(updateDisplay, 50);
+    setInterval(updateDisplay, 100);
     updateDisplay();
   </script>
 </body>
