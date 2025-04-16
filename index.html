@@ -71,6 +71,15 @@
       background-color: #333;
       color: #f0f0f0;
     }
+
+    #dateDisplay {
+      position: absolute;
+      top: 0.5vw;
+      right: 1vw;
+      font-size: 5vw;
+      z-index: 1000;
+      color: inherit;
+    }
   </style>
 </head>
 <body class="dark-mode">
@@ -101,6 +110,8 @@
     </select>
     <button id="toggleModeBtn">Toggle Dark/Light Mode</button>
   </div>
+
+  <div id="dateDisplay"></div>
 
   <script>
     let is24HourFormat = true;
@@ -217,14 +228,37 @@
       ctx.fillText(displayStr, canvas.width / 2, canvas.height / 2);
     }
 
+    function getFormattedDate() {
+      let today = new Date();
+      let day = today.getDate();
+      let month = today.toLocaleString('default', { month: 'long' });
+      let year = today.getFullYear();
+
+      function getOrdinal(n) {
+        if (n > 3 && n < 21) return 'th';
+        switch (n % 10) {
+          case 1: return 'st';
+          case 2: return 'nd';
+          case 3: return 'rd';
+          default: return 'th';
+        }
+      }
+
+      return `${day}${getOrdinal(day)} ${month}, ${year}`;
+    }
+
     function updateDisplay() {
+      let chosenFont = document.getElementById('fontSelect').value;
       if (currentMode === "time") {
         updateTimeClock();
       } else if (currentMode === "stopwatch") {
         let secondsElapsed = stopwatchStartTime ? Math.floor((Date.now() - stopwatchStartTime) / 1000) : 0;
         drawClock(formatStopwatch(secondsElapsed));
       }
+      document.getElementById('dateDisplay').style.fontFamily = chosenFont;
     }
+
+    document.getElementById('dateDisplay').textContent = getFormattedDate();
 
     setInterval(updateDisplay, 50);
     updateDisplay();
