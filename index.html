@@ -235,8 +235,10 @@
       let clockStr = "";
 
       if (!is24HourFormat) {
+        const period = hours >= 12 ? "PM" : "AM";
         hours = hours % 12 || 12;
-        clockStr = showSeconds ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`;
+        clockStr = showSeconds
+          ? `${hours}:${minutes}:${seconds} ${period}` : `${hours}:${minutes} ${period}`;
       } else {
         clockStr = showSeconds 
           ? `${String(hours).padStart(2, '0')}:${minutes}:${seconds}` 
