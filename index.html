@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clock</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      transition: background-color 0.3s, color 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 0;
+    }
+    .toggle-btn {
+      position: absolute;
+      top: 0.5vw;
+      left: 0.5vw;
+      width: 5vw;
+      height: 2vw;
+      background-color: transparent;
+      color: inherit;
+      border: none;
+      cursor: pointer;
+      z-index: 1000;
+    }
+    .stopwatch-options {
+      position: absolute;
+      top: 0.5vw;
+      left: calc(6vw + 1vw);
+      z-index: 1000;
+      display: none;
+    }
+    .stopwatch-options > button {
+      margin-right: 5px;
+      font-size: 1vw;
+      cursor: pointer;
+    }
+    .options {
+      position: absolute;
+      top: 3vw;
+      left: 1vw;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+      background-color: #ddd;
+      border-radius: 8px;
+      max-width: 300px;
+      width: 100%;
+      z-index: 1000;
+    }
+    .options > * {
+      margin: 5px;
+    }
+    button, select {
+      font-size: 1vw;
+      cursor: pointer;
+    }
+    .dark-mode {
+      background-color: #333;
+      color: #f0f0f0;
+    }
+  </style>
+</head>
+<body class="dark-mode">
+  <button class="toggle-btn" id="toggleOptionsBtn">Options</button>
+
+  <div class="stopwatch-options" id="stopwatchOptions">
+    <button id="startStopwatchBtn">Start</button>
+    <button id="resetStopwatchBtn">Reset</button>
+  </div>
+
+  <canvas id="clockCanvas"></canvas>
+
+  <div class="options" id="optionsDiv">
+    <div>
+      <button id="timeModeBtn">Time</button>
+      <button id="stopwatchModeBtn">Stopwatch</button>
+    </div>
+    <button id="toggleTimeFormatBtn">Toggle 24/12 Hour Format</button>
+    <button id="toggleSecondsBtn">Toggle Seconds</button>
+    <select id="fontSelect">
+      <option value="Verdana, sans-serif" selected>Verdana</option>
+      <option value="'Courier New', monospace">Courier New</option>
+      <option value="Arial, sans-serif">Arial</option>
+      <option value="Tahoma, sans-serif">Tahoma</option>
+      <option value="Courier, sans-serif">Courier</option>
+      <option value="'Space Mono', monospace">Space Mono</option>
+      <option value="'Roboto Mono', monospace">Roboto Mono</option>
+    </select>
+    <button id="toggleModeBtn">Toggle Dark/Light Mode</button>
+  </div>
+
+  <script>
+    let is24HourFormat = true;
+    let showSeconds = true;
+    let currentMode = "time"; // "time" or "stopwatch"
+    let stopwatchStartTime = null;
+
+    function resizeCanvas() {
+      document.getElementById('clockCanvas').width = window.innerWidth;
+      document.getElementById('clockCanvas').height = window.innerHeight;
+      updateDisplay();
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    document.getElementById('toggleOptionsBtn').addEventListener('click', () => {
+      let optionsDiv = document.getElementById('optionsDiv');
+      optionsDiv.style.display = (optionsDiv.style.display === 'flex') ? 'none' : 'flex';
+    });
+
+    document.getElementById('toggleTimeFormatBtn').addEventListener('click', () => {
+      is24HourFormat = !is24HourFormat;
+      if (currentMode === "time") updateDisplay();
+    });
+
+    document.getElementById('toggleSecondsBtn').addEventListener('click', () => {
+      showSeconds = !showSeconds;
+      if (currentMode === "time") updateDisplay();
+    });
+
+    document.getElementById('fontSelect').addEventListener('change', () => {
+      updateDisplay();
+    });
+
+    document.getElementById('toggleModeBtn').addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+      updateDisplay();
+    });
+
+    document.getElementById('timeModeBtn').addEventListener('click', () => {
+      stopwatchStartTime = null; // reset stopwatch state
+      currentMode = "time";
+      document.getElementById('stopwatchOptions').style.display = "none";
+      document.getElementById('toggleTimeFormatBtn').style.display = "inline-block"; 
+      document.getElementById('toggleSecondsBtn').style.display = "inline-block"; 
+      updateDisplay();
+    });
+
+    document.getElementById('stopwatchModeBtn').addEventListener('click', () => {
+      currentMode = "stopwatch";
+      document.getElementById('toggleTimeFormatBtn').style.display = "none";
+      document.getElementById('toggleSecondsBtn').style.display = "none"; 
+      document.getElementById('stopwatchOptions').style.display = "block"; 
+      stopwatchStartTime = null;
+      updateDisplay();
+    });
+
+    document.getElementById('startStopwatchBtn').addEventListener('click', () => {
+      if (!stopwatchStartTime) {
+        stopwatchStartTime = Date.now();
+      }
+    });
+
+    document.getElementById('resetStopwatchBtn').addEventListener('click', () => {
+      stopwatchStartTime = null;
+      updateDisplay();
+    });
+
+    function updateTimeClock() {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      let clockStr = "";
+      
+      if (!is24HourFormat) {
+        hours = hours % 12 || 12;
+        clockStr = showSeconds ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`;
+      } else {
+        clockStr = showSeconds 
+          ? `${String(hours).padStart(2, '0')}:${minutes}:${seconds}` 
+          : `${String(hours).padStart(2, '0')}:${minutes}`;
+      }
+      drawClock(clockStr);
+    }
+
+    function formatStopwatch(seconds) {
+      const hrs = String(Math.floor(seconds / 3600)).padStart(2, '0');
+      const mins = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+      const secs = String(seconds % 60).padStart(2, '0');
+      return `${hrs}:${mins}:${secs}`;
+    }
+
+    function drawClock(displayStr) {
+      let canvas = document.getElementById('clockCanvas');
+      let ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      let chosenFont = document.getElementById('fontSelect').value;
+      const baseSize = 100;
+      ctx.font = baseSize + "px " + chosenFont;
+      const textWidth = ctx.measureText(displayStr).width;
+      const scaleFactor = (canvas.width * 0.9) / textWidth;
+      let fontSize = baseSize * scaleFactor;
+      if (fontSize * 1.2 > canvas.height * 0.9) {
+        fontSize = (canvas.height * 0.9) / 1.2;
+      }
+      ctx.font = fontSize + "px " + chosenFont;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      const textColor = document.body.classList.contains('dark-mode') ? '#f0f0f0' : '#333';
+      ctx.fillStyle = textColor;
+      ctx.fillText(displayStr, canvas.width / 2, canvas.height / 2);
+    }
+
+    function updateDisplay() {
+      if (currentMode === "time") {
+        updateTimeClock();
+      } else if (currentMode === "stopwatch") {
+        let secondsElapsed = stopwatchStartTime ? Math.floor((Date.now() - stopwatchStartTime) / 1000) : 0;
+        drawClock(formatStopwatch(secondsElapsed));
+      }
+    }
+
+    setInterval(updateDisplay, 50);
+    updateDisplay();
+  </script>
+</body>
+</html>
